@@ -46,13 +46,10 @@ for page in range(1, number_pages):
     for issue in issues["items"]:
         url = issue["url"]
         issue_title = issue["title"]
-        
-        print(f"{issue_title}\n{url}\n\n")
-        
         issue_body_raw = issue["body"]
         issue_body = code_cleaner_regex.sub("[CODE]", issue_body_raw) if issue_body_raw is not None else issue_body_raw
         issue_labels = [x["name"] for x in issue["labels"]]
-
+        issue_number = url.split("/")[-1]
 
         # Get comments
         comment_data = get_json_data_from_url(issue["comments_url"])
@@ -61,13 +58,16 @@ for page in range(1, number_pages):
             continue
 
         dup_issues = issue_finder_regex.findall("".join([x["body"] for x in comment_data]))
-
+        
+        # Make sure that we don't simply capture a reference to the current issue.
+        dup_issues = [x for x in dup_issues if x != f"#{issue_number}"]
+        
         if len(dup_issues) <= 0:
             continue
 
         first_dup_issue = dup_issues[0]
         duplicate_issue_url = "/".join(url.split("/")[:-1]) + dup_issues[0].replace("#", "/")
-
+        
         duplicate_data = get_json_data_from_url(duplicate_issue_url)
 
         if duplicate_data is None:
