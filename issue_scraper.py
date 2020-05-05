@@ -46,11 +46,13 @@ for page in range(1, number_pages):
     for issue in issues["items"]:
         url = issue["url"]
         issue_title = issue["title"]
+        
+        print(f"{issue_title}\n{url}\n\n")
+        
         issue_body = code_cleaner_regex.sub("[CODE]", issue["body"]) 
         issue_body_raw = issue["body"]
         issue_labels = [x["name"] for x in issue["labels"]]
 
-        print(f"{issue_title}\n{url}\n\n")
 
         # Get comments
         comment_data = get_json_data_from_url(issue["comments_url"])
