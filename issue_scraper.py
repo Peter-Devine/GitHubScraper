@@ -44,52 +44,56 @@ for page in range(1, number_pages):
         continue
 
     for issue in issues["items"]:
-        url = issue["url"]
-        issue_title = issue["title"]
-        issue_body_raw = issue["body"]
-        issue_body = code_cleaner_regex.sub("[CODE]", issue_body_raw) if issue_body_raw is not None else issue_body_raw
-        issue_labels = [x["name"] for x in issue["labels"]]
-        issue_number = url.split("/")[-1]
+        try:
+            url = issue["url"]
+            issue_title = issue["title"]
+            issue_body_raw = issue["body"]
+            issue_body = code_cleaner_regex.sub("[CODE]", issue_body_raw) if issue_body_raw is not None else issue_body_raw
+            issue_labels = [x["name"] for x in issue["labels"]]
+            issue_number = url.split("/")[-1]
 
-        # Get comments
-        comment_data = get_json_data_from_url(issue["comments_url"])
+            # Get comments
+            comment_data = get_json_data_from_url(issue["comments_url"])
 
-        if comment_data is None:
-            continue
+            if comment_data is None:
+                continue
 
-        dup_issues = issue_finder_regex.findall("".join([x["body"] for x in comment_data]))
-        
-        # Make sure that we don't simply capture a reference to the current issue.
-        dup_issues = [x for x in dup_issues if x != f"#{issue_number}"]
-        
-        if len(dup_issues) <= 0:
-            continue
+            dup_issues = issue_finder_regex.findall("".join([x["body"] for x in comment_data]))
 
-        first_dup_issue = dup_issues[0]
-        duplicate_issue_url = "/".join(url.split("/")[:-1]) + dup_issues[0].replace("#", "/")
-        
-        duplicate_data = get_json_data_from_url(duplicate_issue_url)
+            # Make sure that we don't simply capture a reference to the current issue.
+            dup_issues = [x for x in dup_issues if x != f"#{issue_number}"]
 
-        if duplicate_data is None:
-            continue
+            if len(dup_issues) <= 0:
+                continue
 
-        duplicate_body_raw = duplicate_data["body"]
-        duplicate_body = code_cleaner_regex.sub("[CODE]", duplicate_body_raw) if duplicate_body_raw is not None else duplicate_body_raw
-        duplicate_title = duplicate_data["title"]
-        duplicate_labels = [x["name"] for x in duplicate_data["labels"]]
+            first_dup_issue = dup_issues[0]
+            duplicate_issue_url = "/".join(url.split("/")[:-1]) + dup_issues[0].replace("#", "/")
 
-        issue_data_list.append({
-            "url": url,
-            "issue_title": issue_title,
-            "issue_body": issue_body,
-            "issue_body_raw": issue_body_raw,
-            "issue_labels": issue_labels,
-            "dup_issues": dup_issues,
-            "first_dup_issue_url": duplicate_issue_url,
-            "duplicate_body": duplicate_body,
-            "duplicate_body_raw": duplicate_body_raw,
-            "duplicate_title": duplicate_title,
-            "duplicate_labels": duplicate_labels
-        })
+            duplicate_data = get_json_data_from_url(duplicate_issue_url)
+
+            if duplicate_data is None:
+                continue
+
+            duplicate_body_raw = duplicate_data["body"]
+            duplicate_body = code_cleaner_regex.sub("[CODE]", duplicate_body_raw) if duplicate_body_raw is not None else duplicate_body_raw
+            duplicate_title = duplicate_data["title"]
+            duplicate_labels = [x["name"] for x in duplicate_data["labels"]]
+
+            issue_data_list.append({
+                "url": url,
+                "issue_title": issue_title,
+                "issue_body": issue_body,
+                "issue_body_raw": issue_body_raw,
+                "issue_labels": issue_labels,
+                "dup_issues": dup_issues,
+                "first_dup_issue_url": duplicate_issue_url,
+                "duplicate_body": duplicate_body,
+                "duplicate_body_raw": duplicate_body_raw,
+                "duplicate_title": duplicate_title,
+                "duplicate_labels": duplicate_labels
+            })
+        except Exception as e:
+            current_url = issue["url"]
+            print(f"Error when scraping {current_url}:\n{e}\n\n")
 
     upload_df_to_gd(f"github_issues_{page}.csv", pd.DataFrame(issue_data_list), "1Z6qifbWAhgSCDupyXb5nFCYxHZiJU21X")
