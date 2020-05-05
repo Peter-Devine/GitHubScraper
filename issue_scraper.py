@@ -49,8 +49,8 @@ for page in range(1, number_pages):
         
         print(f"{issue_title}\n{url}\n\n")
         
-        issue_body = code_cleaner_regex.sub("[CODE]", issue["body"]) 
         issue_body_raw = issue["body"]
+        issue_body = code_cleaner_regex.sub("[CODE]", issue_body_raw) if issue_body_raw not None else issue_body_raw
         issue_labels = [x["name"] for x in issue["labels"]]
 
 
@@ -73,8 +73,8 @@ for page in range(1, number_pages):
         if duplicate_data is None:
             continue
 
-        duplicate_body = code_cleaner_regex.sub("[CODE]", duplicate_data["body"])
         duplicate_body_raw = duplicate_data["body"]
+        duplicate_body = code_cleaner_regex.sub("[CODE]", duplicate_body_raw) if duplicate_body_raw not None else duplicate_body_raw
         duplicate_title = duplicate_data["title"]
         duplicate_labels = [x["name"] for x in duplicate_data["labels"]]
 
