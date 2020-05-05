@@ -4,6 +4,8 @@ import re
 import pandas as pd
 import time
 
+from google_drive_utils import upload_df_to_gd
+
 parser = argparse.ArgumentParser()
 parser.add_argument('--github_username', required=True, type=str, help='Username for GitHub')
 parser.add_argument('--access_token', required=True, type=str, help='Personal Access Token')
