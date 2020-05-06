@@ -4,7 +4,9 @@ import re
 import pandas as pd
 import time
 import argparse
+import math
 from tqdm import tqdm
+import datetime
 
 from google_drive_utils import upload_df_to_gd
 
@@ -18,7 +20,7 @@ def get_json_data_from_url(url):
 
     # Sleep and return None if URL is not working. Sleep in case non-200 is due to rate limiting.
     if r.status_code != 200:
-        timeout_time_seconds = 5
+        timeout_time_seconds = 0.1
         print(f"Timing out for {timeout_time_seconds} seconds after getting a {r.status_code} status code from {url}")
         time.sleep(timeout_time_seconds)
         return None
@@ -26,84 +28,123 @@ def get_json_data_from_url(url):
     data = json.loads(r.content)
     return data
 
-issues = get_json_data_from_url("https://api.github.com/search/issues?q=label:duplicate&per_page=100&page=1")
+def get_earliest_dup_date():
+    # Get all issues, sorted by date, ascending
+    earliest_duplicates = get_json_data_from_url("https://api.github.com/search/issues?q=label:duplicate&per_page=100&page=1&sort=created&order=asc")
 
-number_pages = int(issues["total_count"] / 100)
+    # Take the top result in the list (I.e. the earliest) and get its creation date
+    earliest_date_duplicate_string = earliest_duplicates["items"][0]["created_at"]
 
-page_bar = tqdm(range(1, number_pages))
+    # Only get the date of the creation date (I.e. not time)
+    earliest_date_duplicate_string = earliest_date_duplicate_string.split("T")[0]
 
-for page in page_bar:
-    page_bar.set_description(f"Page number {page}")
+    # Convert to datetime
+    earliest_date_duplicate = datetime.datetime.strptime(earliest_date_duplicate_string, "%Y-%m-%d")
 
-    # Get duplicate issues
-    issues = get_json_data_from_url(f"https://api.github.com/search/issues?q=label:duplicate&per_page=100&page={page}")
+    return earliest_date_duplicate
 
-    # Finds all mentions of a hash followed by numbers (E.g. #1234)
-    issue_finder_regex = re.compile("#\d+")
+def get_date_iteration_max():
+    # Get earliest date of duplicate issue
+    earliest_date = get_earliest_dup_date()
 
-    # Removes all code between code blocks (In order to reduce size of comments and only retain more human readable bits)
-    code_cleaner_regex = re.compile("```([\S\s]+)```")
+    # Find the time between now and the earliest date
+    date_delta = datetime.datetime.now() - earliest_date
+
+    # Get the number of days from this difference in time
+    return date_delta.days
+
+def iterate_date(date):
+    return date + datetime.timedelta(days=1)
+
+search_date = get_earliest_dup_date()
+
+for _ in range(get_date_iteration_max()):
+    search_date_string = search_date.strftime("%Y-%m-%d")
+
+    issues = get_json_data_from_url(f"https://api.github.com/search/issues?q=label:duplicate+created:{search_date_string}&per_page=100&page=1&sort=created&order=asc")
+
+    search_date = iterate_date(search_date)
+
+    number_pages = math.ceil(issues["total_count"] / 100)
+
+    # GitHub API Only shows the first 1000 results, meaning that we cannot get any issue data past page 10
+    number_pages = min([10, number_pages])
+
+    page_bar = tqdm(range(1, number_pages+1))
 
     issue_data_list = []
 
-    if issues is None:
-        continue
+    for page in page_bar:
+        page_bar.set_description(f"Page number {page}")
 
-    issue_bar = tqdm(issues["items"], position=1, leave=True)
+        # Get duplicate issues
+        issues = get_json_data_from_url(f"https://api.github.com/search/issues?q=label:duplicate+created:{search_date_string}&per_page=100&page={page}&sort=created&order=asc")
 
-    for issue in issue_bar:
-        try:
-            url = issue["url"]
-            issue_bar.set_description(f"Scraping issue {url}")
+        # Finds all mentions of a hash followed by numbers (E.g. #1234)
+        issue_finder_regex = re.compile("#\d+")
 
-            issue_title = issue["title"]
-            issue_body_raw = issue["body"]
-            issue_body = code_cleaner_regex.sub("[CODE]", issue_body_raw) if issue_body_raw is not None else issue_body_raw
-            issue_labels = [x["name"] for x in issue["labels"]]
-            issue_number = url.split("/")[-1]
+        # Removes all code between code blocks (In order to reduce size of comments and only retain more human readable bits)
+        code_cleaner_regex = re.compile("```([\S\s]+)```")
 
-            # Get comments
-            comment_data = get_json_data_from_url(issue["comments_url"])
+        if issues is None:
+            continue
 
-            if comment_data is None:
-                continue
+        issue_bar = tqdm(issues["items"], position=1, leave=True)
 
-            dup_issues = issue_finder_regex.findall("".join([x["body"] for x in comment_data]))
+        for issue in issue_bar:
+            try:
+                url = issue["url"]
+                issue_bar.set_description(f"Scraping issue {url}")
 
-            # Make sure that we don't simply capture a reference to the current issue.
-            dup_issues = [x for x in dup_issues if x != f"#{issue_number}"]
+                issue_title = issue["title"]
+                issue_body_raw = issue["body"]
+                issue_body = code_cleaner_regex.sub("[CODE]", issue_body_raw) if issue_body_raw is not None else issue_body_raw
+                issue_labels = [x["name"] for x in issue["labels"]]
+                issue_number = url.split("/")[-1]
 
-            if len(dup_issues) <= 0:
-                continue
+                # Get comments
+                comment_data = get_json_data_from_url(issue["comments_url"])
 
-            first_dup_issue = dup_issues[0]
-            duplicate_issue_url = "/".join(url.split("/")[:-1]) + dup_issues[0].replace("#", "/")
+                if comment_data is None:
+                    continue
 
-            duplicate_data = get_json_data_from_url(duplicate_issue_url)
+                dup_issues = issue_finder_regex.findall("".join([x["body"] for x in comment_data]))
 
-            if duplicate_data is None:
-                continue
+                # Make sure that we don't simply capture a reference to the current issue or 0
+                dup_issues = [x for x in dup_issues if x != f"#{issue_number}" and x != "#0"]
 
-            duplicate_body_raw = duplicate_data["body"]
-            duplicate_body = code_cleaner_regex.sub("[CODE]", duplicate_body_raw) if duplicate_body_raw is not None else duplicate_body_raw
-            duplicate_title = duplicate_data["title"]
-            duplicate_labels = [x["name"] for x in duplicate_data["labels"]]
+                if len(dup_issues) <= 0:
+                    continue
 
-            issue_data_list.append({
-                "url": url,
-                "issue_title": issue_title,
-                "issue_body": issue_body,
-                "issue_body_raw": issue_body_raw,
-                "issue_labels": issue_labels,
-                "dup_issues": dup_issues,
-                "first_dup_issue_url": duplicate_issue_url,
-                "duplicate_body": duplicate_body,
-                "duplicate_body_raw": duplicate_body_raw,
-                "duplicate_title": duplicate_title,
-                "duplicate_labels": duplicate_labels
-            })
-        except Exception as e:
-            current_url = issue["url"]
-            print(f"Error when scraping {current_url}:\n{e}\n\n")
+                first_dup_issue = dup_issues[0]
+                duplicate_issue_url = "/".join(url.split("/")[:-1]) + dup_issues[0].replace("#", "/")
 
-    upload_df_to_gd(f"github_issues_{page}.csv", pd.DataFrame(issue_data_list), "1Z6qifbWAhgSCDupyXb5nFCYxHZiJU21X")
+                duplicate_data = get_json_data_from_url(duplicate_issue_url)
+
+                if duplicate_data is None:
+                    continue
+
+                duplicate_body_raw = duplicate_data["body"]
+                duplicate_body = code_cleaner_regex.sub("[CODE]", duplicate_body_raw) if duplicate_body_raw is not None else duplicate_body_raw
+                duplicate_title = duplicate_data["title"]
+                duplicate_labels = [x["name"] for x in duplicate_data["labels"]]
+
+                issue_data_list.append({
+                    "url": url,
+                    "issue_title": issue_title,
+                    "issue_body": issue_body,
+                    "issue_body_raw": issue_body_raw,
+                    "issue_labels": issue_labels,
+                    "dup_issues": dup_issues,
+                    "first_dup_issue_url": duplicate_issue_url,
+                    "duplicate_body": duplicate_body,
+                    "duplicate_body_raw": duplicate_body_raw,
+                    "duplicate_title": duplicate_title,
+                    "duplicate_labels": duplicate_labels
+                })
+            except Exception as e:
+                current_url = issue["url"]
+                print(f"Error when scraping {current_url}:\n{e}\n\n")
+
+    file_date_string = search_date_string.replace("-", "_")
+    upload_df_to_gd(f"github_issues_{file_date_string}.csv", pd.DataFrame(issue_data_list), "1Z6qifbWAhgSCDupyXb5nFCYxHZiJU21X")
