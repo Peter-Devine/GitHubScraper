@@ -20,7 +20,8 @@ def get_json_data_from_url(url):
 
     # Sleep and return None if URL is not working. Sleep in case non-200 is due to rate limiting.
     if r.status_code != 200:
-        timeout_time_seconds = 0.1
+        # Time out more if we get a 403 (telling us we are making too many calls)
+        timeout_time_seconds = 5 if r.status_code == 403 else 0.1
         print(f"Timing out for {timeout_time_seconds} seconds after getting a {r.status_code} status code from {url}")
         time.sleep(timeout_time_seconds)
         return None
@@ -31,6 +32,12 @@ def get_json_data_from_url(url):
 def get_earliest_dup_date():
     # Get all issues, sorted by date, ascending
     earliest_duplicates = get_json_data_from_url("https://api.github.com/search/issues?q=label:duplicate&per_page=100&page=1&sort=created&order=asc")
+
+    if earliest_duplicates is None:
+        timeout_time_seconds = 10
+        print(f"Retrying call to get earliest date in {timeout_time_seconds} seconds")
+        time.sleep(timeout_time_seconds)
+        return get_earliest_dup_date()
 
     # Take the top result in the list (I.e. the earliest) and get its creation date
     earliest_date_duplicate_string = earliest_duplicates["items"][0]["created_at"]
@@ -68,6 +75,9 @@ for _ in daily_iteration_bar:
     issues = get_json_data_from_url(f"https://api.github.com/search/issues?q=label:duplicate+created:{search_date_string}&per_page=100&page=1&sort=created&order=asc")
 
     search_date = iterate_date(search_date)
+
+    if issues is None:
+        continue
 
     number_pages = math.ceil(issues["total_count"] / 100)
 
