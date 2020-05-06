@@ -18,7 +18,7 @@ def get_json_data_from_url(url):
 
     # Sleep and return None if URL is not working. Sleep in case non-200 is due to rate limiting.
     if r.status_code != 200:
-        timeout_time_seconds = 210
+        timeout_time_seconds = 5
         print(f"Timing out for {timeout_time_seconds} seconds after getting a {r.status_code} status code from {url}")
         time.sleep(timeout_time_seconds)
         return None
