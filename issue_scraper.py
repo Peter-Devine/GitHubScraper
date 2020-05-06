@@ -31,7 +31,7 @@ def get_json_data_from_url(url):
 
 def get_earliest_dup_date():
     # Get all issues, sorted by date, ascending
-    earliest_duplicates = get_json_data_from_url("https://api.github.com/search/issues?q=label:duplicate&per_page=100&page=1&sort=created&order=asc")
+    earliest_duplicates = get_json_data_from_url("https://api.github.com/search/issues?q=label:duplicate&per_page=100&page=10&sort=created&order=asc")
 
     if earliest_duplicates is None:
         timeout_time_seconds = 60
@@ -39,8 +39,11 @@ def get_earliest_dup_date():
         time.sleep(timeout_time_seconds)
         return get_earliest_dup_date()
 
-    # Take the top result in the list (I.e. the earliest) and get its creation date
-    earliest_date_duplicate_string = earliest_duplicates["items"][0]["created_at"]
+    # Take the bottom result in the list (I.e. the 1000th earliest over all issues) and get its creation date
+    # We do not take the very earliest, as the earliest was from 2000, and the 100th earliest is from 2003. The 1000th is from 2008, and the next ~270,000 are from the following 12 years.
+    # There is a lot of sparsity between days, meaning that we start to hit a rate limit quickly if we do not take a slightly later date.
+    # We therefore do not mind sacraficing the first 1000 entries so that we do not have to cycle through 8 years of dates with queries
+    earliest_date_duplicate_string = earliest_duplicates["items"][99]["created_at"]
 
     # Only get the date of the creation date (I.e. not time)
     earliest_date_duplicate_string = earliest_date_duplicate_string.split("T")[0]
