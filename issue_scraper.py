@@ -21,7 +21,7 @@ def get_json_data_from_url(url):
     # Sleep and return None if URL is not working. Sleep in case non-200 is due to rate limiting.
     if r.status_code != 200:
         # Time out more if we get a 403 (telling us we are making too many calls)
-        timeout_time_seconds = 1 if r.status_code == 403 else 0.1
+        timeout_time_seconds = 10 if r.status_code == 403 else 0.1
         print(f"Timing out for {timeout_time_seconds} seconds after getting a {r.status_code} status code from {url}")
         time.sleep(timeout_time_seconds)
         return None
@@ -34,7 +34,7 @@ def get_earliest_dup_date():
     earliest_duplicates = get_json_data_from_url("https://api.github.com/search/issues?q=label:duplicate&per_page=100&page=10&sort=created&order=asc")
 
     if earliest_duplicates is None:
-        timeout_time_seconds = 60
+        timeout_time_seconds = 120
         print(f"Retrying call to get earliest date in {timeout_time_seconds} seconds")
         time.sleep(timeout_time_seconds)
         return get_earliest_dup_date()
