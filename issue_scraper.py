@@ -47,7 +47,7 @@ for page in page_bar:
     if issues is None:
         continue
 
-    issue_bar = tqdm(issues["items"])
+    issue_bar = tqdm(issues["items"], position=1, leave=True)
 
     for issue in issue_bar:
         try:
