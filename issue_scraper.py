@@ -4,6 +4,7 @@ import re
 import pandas as pd
 import time
 import argparse
+from tqdm import tqdm
 
 from google_drive_utils import upload_df_to_gd
 
@@ -14,12 +15,12 @@ args = parser.parse_args()
 
 def get_json_data_from_url(url):
     r = requests.get(url, auth=(args.github_username, args.access_token))
-    
+
     # Sleep and return None if URL is not working. Sleep in case non-200 is due to rate limiting.
     if r.status_code != 200:
         time.sleep(1)
         return None
-    
+
     data = json.loads(r.content)
     return data
 
@@ -27,7 +28,10 @@ issues = get_json_data_from_url("https://api.github.com/search/issues?q=label:du
 
 number_pages = int(issues["total_count"] / 100)
 
-for page in range(1, number_pages):
+page_bar = tqdm(range(1, number_pages))
+
+for page in page_bar:
+    page_bar.set_description(f"Page number {page}")
 
     # Get duplicate issues
     issues = get_json_data_from_url(f"https://api.github.com/search/issues?q=label:duplicate&per_page=100&page={page}")
@@ -43,9 +47,13 @@ for page in range(1, number_pages):
     if issues is None:
         continue
 
-    for issue in issues["items"]:
+    issue_bar = tqdm(issues["items"])
+
+    for issue in issue_bar:
         try:
             url = issue["url"]
+            issue_bar.set_description(f"Scraping issue {url}")
+
             issue_title = issue["title"]
             issue_body_raw = issue["body"]
             issue_body = code_cleaner_regex.sub("[CODE]", issue_body_raw) if issue_body_raw is not None else issue_body_raw
