@@ -58,7 +58,7 @@ def iterate_date(date):
 
 search_date = get_earliest_dup_date()
 
-daily_iteration_bar = tqdm(range(get_date_iteration_max()), position=0, leave=True)
+daily_iteration_bar = tqdm(range(get_date_iteration_max()))
 
 for _ in daily_iteration_bar:
     search_date_string = search_date.strftime("%Y-%m-%d")
@@ -150,5 +150,6 @@ for _ in daily_iteration_bar:
                 current_url = issue["url"]
                 print(f"Error when scraping {current_url}:\n{e}\n\n")
 
-    file_date_string = search_date_string.replace("-", "_")
-    upload_df_to_gd(f"github_issues_{file_date_string}.csv", pd.DataFrame(issue_data_list), "1Z6qifbWAhgSCDupyXb5nFCYxHZiJU21X")
+    if len(issue_data_list) > 0:
+        file_date_string = search_date_string.replace("-", "_")
+        upload_df_to_gd(f"github_issues_{file_date_string}.csv", pd.DataFrame(issue_data_list), "1Z6qifbWAhgSCDupyXb5nFCYxHZiJU21X")
