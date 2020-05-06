@@ -34,7 +34,7 @@ def get_earliest_dup_date():
     earliest_duplicates = get_json_data_from_url("https://api.github.com/search/issues?q=label:duplicate&per_page=100&page=1&sort=created&order=asc")
 
     if earliest_duplicates is None:
-        timeout_time_seconds = 10
+        timeout_time_seconds = 60
         print(f"Retrying call to get earliest date in {timeout_time_seconds} seconds")
         time.sleep(timeout_time_seconds)
         return get_earliest_dup_date()
