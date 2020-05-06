@@ -58,12 +58,12 @@ def iterate_date(date):
 
 search_date = get_earliest_dup_date()
 
-daily_iteration_bar = tqdm(range(get_date_iteration_max()))
+daily_iteration_bar = tqdm(range(get_date_iteration_max()), position=0, leave=True)
 
 for _ in daily_iteration_bar:
     search_date_string = search_date.strftime("%Y-%m-%d")
 
-    daily_iteration_bar.set_description(f"Searching for issues on date {search_date_string}", position=0, leave=True)
+    daily_iteration_bar.set_description(f"Searching for issues on date {search_date_string}")
 
     issues = get_json_data_from_url(f"https://api.github.com/search/issues?q=label:duplicate+created:{search_date_string}&per_page=100&page=1&sort=created&order=asc")
 
@@ -74,12 +74,12 @@ for _ in daily_iteration_bar:
     # GitHub API Only shows the first 1000 results, meaning that we cannot get any issue data past page 10
     number_pages = min([10, number_pages])
 
-    page_bar = tqdm(range(1, number_pages+1))
+    page_bar = tqdm(range(1, number_pages+1), position=1, leave=True)
 
     issue_data_list = []
 
     for page in page_bar:
-        page_bar.set_description(f"Page number {page}", position=1, leave=True)
+        page_bar.set_description(f"Page number {page}")
 
         # Get duplicate issues
         issues = get_json_data_from_url(f"https://api.github.com/search/issues?q=label:duplicate+created:{search_date_string}&per_page=100&page={page}&sort=created&order=asc")
