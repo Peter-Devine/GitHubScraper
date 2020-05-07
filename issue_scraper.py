@@ -19,7 +19,7 @@ def get_json_data_from_url(url):
     try:
         r = requests.get(url, auth=(args.github_username, args.access_token))
     except Exception as err:
-        connection_error_timeout_seconds = 100
+        connection_error_timeout_seconds = 300
         print(f"Timing out for {connection_error_timeout_seconds}s because error thrown when requesting data from <<< {url} >>>\n{err}\n\n")
         time.sleep(connection_error_timeout_seconds)
         return None
