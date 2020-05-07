@@ -16,12 +16,18 @@ parser.add_argument('--access_token', required=True, type=str, help='Personal Ac
 args = parser.parse_args()
 
 def get_json_data_from_url(url):
-    r = requests.get(url, auth=(args.github_username, args.access_token))
+    try:
+        r = requests.get(url, auth=(args.github_username, args.access_token))
+    except Exception as err:
+        connection_error_timeout_seconds = 100
+        print(f"Timing out for {connection_error_timeout_seconds}s because error thrown when requesting data from <<< {url} >>>\n{err}\n\n")
+        time.sleep(connection_error_timeout_seconds)
+        return None
 
     # Sleep and return None if URL is not working. Sleep in case non-200 is due to rate limiting.
     if r.status_code != 200:
         # Time out more if we get a 403 (telling us we are making too many calls)
-        timeout_time_seconds = 10 if r.status_code == 403 else 0.1
+        timeout_time_seconds = 10 if r.status_code == 403 or r.status_code == 433 else 0.1
         print(f"Timing out for {timeout_time_seconds} seconds after getting a {r.status_code} status code from {url}")
         time.sleep(timeout_time_seconds)
         return None
@@ -161,7 +167,7 @@ for _ in daily_iteration_bar:
                 })
             except Exception as e:
                 current_url = issue["url"]
-                print(f"Error when scraping {current_url}:\n{e}\n\n")
+                print(f"Error when processing/scraping {current_url}:\n{e}\n\n")
 
     if len(issue_data_list) > 0:
         file_date_string = search_date_string.replace("-", "_")
